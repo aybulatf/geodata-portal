@@ -1,0 +1,59 @@
+version: "2.1"
+services:
+  django:
+    build: ./docker/
+    container_name: dataportal_django
+    command: 'bash -c "python manage.py makemigrations && python manage.py migrate && python manage.py collectstatic --noinput && gunicorn explorer.wsgi -b 0.0.0.0:8000"'
+    depends_on:
+      - db
+    volumes:
+      - .:/geodata-portal
+      - static:/geodata-portal/static
+      - media:/geodata-portal/media
+    networks: 
+      - nginx_network
+      - db_network
+    env_file: ./config/env
+    expose:
+      - 8000
+    restart: always
+
+  nginx:
+    image: nginx:latest
+    container_name: dataportal_nginx
+    ports:
+      - 8000:80
+    volumes:
+      - ./config/nginx/conf.d:/etc/nginx/conf.d
+      - static:/geodata-portal/static
+      - media:/geodata-portal/media
+    depends_on:
+      - django
+    networks: 
+      - nginx_network
+    restart: always
+
+  db:
+    image: mdillon/postgis
+    container_name: dataportal_postgres
+    volumes:
+      - data:/var/lib/postgresql/data
+    networks: 
+      - db_network
+    expose:
+      - 5432
+    restart: always
+
+networks:
+  nginx_network:
+    driver: bridge
+  db_network:
+    driver: bridge
+
+volumes:
+  static:
+    driver: local
+  media:
+    driver: local
+  data:
+    driver: local
